@@ -12,8 +12,8 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_s
 file_path = 'ruta'
 data = pd.read_csv(file_path)
 
-# Tomar solo los primeros 500 datos
-data = data.head(500)
+
+data = data.head(100)
 
 # Inicio para medir el tiempo
 start_time = time.time()
@@ -37,12 +37,12 @@ x_min, x_max = data['SessionsPerWeek'].min(), data['SessionsPerWeek'].max()
 y_min, y_max = data['AvgSessionDurationMinutes'].min(), data['AvgSessionDurationMinutes'].max()
 
 # Generar 3 datos aleatorios basados en los valores originales
-new_sessions_per_week = np.random.uniform(x_min, x_max, size=3)  # Sesiones por semana
-new_avg_session_duration = np.random.uniform(y_min, y_max, size=3)  # Duración promedio de la sesión
+new_sessions_per_week = np.random.uniform(x_min, x_max, size=2)  # Sesiones por semana
+new_avg_session_duration = np.random.uniform(y_min, y_max, size=2)  # Duración promedio de la sesión
 
 # Generar el resto de las características aleatorias (dentro de los rangos apropiados)
 # 11 características, que es lo que el modelo espera
-new_data_rest = np.random.randint(0, 19, size=(3, X_train.shape[1] - 2))  # Generar para las otras columnas
+new_data_rest = np.random.randint(0, 19, size=(2, X_train.shape[1] - 2))  # Generar para las otras columnas
 
 # Concatenar todas las columnas
 new_dataX = np.column_stack((new_sessions_per_week, new_avg_session_duration, new_data_rest))
@@ -85,7 +85,32 @@ best_k_value = k_values[best_k_index]
 # Tiempo final para medir el tiempo de ejecución
 end_time = time.time()
 
+# Corregir la gráfica para que muestre correctamente los K vecinos más cercanos
+plt.figure(figsize=(10, 6))
+
 # Graficar los datos originales
+sns.scatterplot(x=data[x_column], y=data[y_column], hue=data['EngagementLevel'], palette='viridis', s=60)
+
+# Graficar los nuevos puntos generados aleatoriamente
+plt.scatter(new_dataX[:, 0], new_dataX[:, 1], color='green', marker='x', s=200, label='New Data')
+
+# Graficar los K vecinos más cercanos para cada punto nuevo generado
+for i, (dist, idx) in enumerate(zip(distances, indices)):
+    for neighbor_idx in idx:
+        plt.scatter(X_train.iloc[neighbor_idx]['SessionsPerWeek'], 
+                    X_train.iloc[neighbor_idx]['AvgSessionDurationMinutes'], 
+                    color='red', marker='o', s=100, label=f'Neighbor of New Data {i+1}' if neighbor_idx == idx[0] else "")
+
+# Personalizar la gráfica
+plt.xlabel('Sesiones por semana')
+plt.ylabel('Duración promedio de la sesión (minutos)')
+plt.legend(bbox_to_anchor=(1, 0.3))  # Colocar la leyenda fuera del gráfico
+plt.title(f'Gráfica de dispersión en 2D con los {knn.n_neighbors} vecinos más cercanos')
+
+# Mostrar la gráfica
+plt.show()
+
+""" # Graficar los datos originales
 plt.figure(figsize=(10, 6))
 sns.scatterplot(x=data[x_column], y=data[y_column], hue=data['EngagementLevel'], palette='viridis', s=60)
 
@@ -97,7 +122,7 @@ plt.xlabel('Sesiones por semana')
 plt.ylabel('Duración promedio de la sesión (minutos)')
 plt.legend(bbox_to_anchor=(1, 0.3))
 plt.title('Gráfica de dispersión de datos con nuevos puntos aleatorios')
-plt.show()
+plt.show() """
 
 # Generar la matriz de confusión
 cm = confusion_matrix(y_test, y_pred)
@@ -115,7 +140,50 @@ plt.ylabel('Precisión (accuracy)')
 plt.grid(True)
 plt.show()
 
-# Crear la gráfica de dispersión en 3D
+# Gráfica 3D de los K vecinos más cercanos
+fig = plt.figure(figsize=(12, 10))
+ax = fig.add_subplot(111, projection='3d')
+
+# Definir colores para los niveles de 'EngagementLevel'
+colors = {0: 'red', 1: 'blue', 2: 'green', 3: 'yellow'}
+
+# Graficar los datos de entrenamiento
+ax.scatter(X_train['SessionsPerWeek'], 
+           X_train['AvgSessionDurationMinutes'], 
+           X_train['PlayerLevel'], 
+           c=[colors[label] for label in y_train], 
+           s=60, label='Training Data')
+
+# Graficar el nuevo punto generado aleatoriamente
+ax.scatter(new_dataX[:, 0], new_dataX[:, 1], new_dataX[:, 2], 
+           c='black', marker='x', s=100, label='New Data')
+
+# Graficar los K vecinos más cercanos para cada punto nuevo
+for i, idx in enumerate(indices):
+    # Los índices de los K vecinos más cercanos están en 'indices'
+    for neighbor_idx in idx:
+        ax.scatter(X_train.iloc[neighbor_idx]['SessionsPerWeek'], 
+                   X_train.iloc[neighbor_idx]['AvgSessionDurationMinutes'], 
+                   X_train.iloc[neighbor_idx]['PlayerLevel'], 
+                   c='orange', marker='o', s=100, label=f'Neighbors of New Data {i+1}' if i == 0 and neighbor_idx == idx[0] else "")
+
+# Etiquetas para los ejes
+ax.set_xlabel('Sesiones por semana')
+ax.set_ylabel('Duración promedio de la sesión (minutos)')
+ax.set_zlabel('Nivel del jugador')
+ax.set_title(f'Gráfica 3D de los {knn.n_neighbors} vecinos más cercanos al nuevo punto')
+
+# Añadir leyenda
+legend_elements = [plt.Line2D([0], [0], marker='o', color='w', label='Training Data',
+                              markerfacecolor='gray', markersize=10),
+                   plt.Line2D([0], [0], marker='x', color='black', label='New Data', markersize=10),
+                   plt.Line2D([0], [0], marker='o', color='orange', label='Neighbors', markersize=10)]
+
+ax.legend(handles=legend_elements, loc='upper left')
+
+plt.show()
+
+""" # Crear la gráfica de dispersión en 3D
 fig = plt.figure(figsize=(12, 10))
 ax = fig.add_subplot(111, projection='3d')
 
@@ -153,7 +221,7 @@ if 'SessionsPerWeek' in X_train.columns and 'AvgSessionDurationMinutes' in X_tra
                        for i, color in filtered_colors.items()]
 
     # Añadir también la leyenda para los nuevos datos
-    legend_elements.append(plt.Line2D([0], [0], marker='x', color='black', label='New Data', markerfacecolor='black', markersize=20))
+    legend_elements.append(plt.Line2D([0], [0], marker='x', color='black', label='New Data', markersize=20))
 
     ax.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(1.1, 1))
 
@@ -163,7 +231,7 @@ if 'SessionsPerWeek' in X_train.columns and 'AvgSessionDurationMinutes' in X_tra
     # Mostrar la gráfica
     plt.show()
 else:
-    print("Las columnas requeridas no están en el conjunto de entrenamiento.")
+    print("Las columnas requeridas no están en el conjunto de entrenamiento.") """
 
 # Calcular el tiempo de ejecución
 training_time = end_time - start_time
